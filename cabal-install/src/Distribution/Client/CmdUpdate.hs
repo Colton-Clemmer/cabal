@@ -29,6 +29,8 @@ import Distribution.Client.ProjectConfig
          , withProjectOrGlobalConfig )
 import Distribution.Client.ProjectFlags
          ( ProjectFlags (..) )
+import Distribution.Types.Dependency
+import Distribution.Types.PackageName (unPackageName)
 import Distribution.Client.Types
          ( Repo(..), RepoName (..), unRepoName, RemoteRepo(..), repoName )
 import Distribution.Client.HttpUtils
@@ -51,7 +53,7 @@ import Distribution.Client.IndexUtils.Timestamp
 import Distribution.Client.IndexUtils.IndexState
 import Distribution.Client.IndexUtils
          ( updateRepoIndexCache, Index(..), writeIndexTimestamp
-         , currentIndexTimestamp, indexBaseName, updatePackageIndexCacheFile )
+         , currentIndexTimestamp, indexBaseName, updatePackageIndexCacheFile , readRepoIndex)
 
 import qualified Data.Maybe as Unsafe (fromJust)
 import qualified Distribution.Compat.CharParsing as P
@@ -175,6 +177,7 @@ updateAction flags@NixStyleFlags {..} extraArgs globalFlags = do
 updateRepo :: Verbosity -> UpdateFlags -> RepoContext -> (Repo, RepoIndexState)
            -> IO ()
 updateRepo verbosity _updateFlags repoCtxt (repo, indexState) = do
+  (_, dependanciesBeforeUpdate, _) <- readRepoIndex verbosity repoCtxt repo indexState
   transport <- repoContextGetTransport repoCtxt
   case repo of
     RepoLocalNoIndex{} -> do
@@ -231,3 +234,18 @@ updateRepo verbosity _updateFlags repoCtxt (repo, indexState) = do
             noticeNoWrap verbosity $
               "To revert to previous state run:\n" ++
               "    cabal v2-update '" ++ prettyShow (UpdateRequest rname (IndexStateTime current_ts)) ++ "'\n"
+  
+  (_, dependenciesAfterUpdate, _) <- readRepoIndex verbosity repoCtxt repo indexState
+  -- putStr $ concat
+  --   . map (\(Dependency name _ _ ) -> unPackageName name)
+  --   . filter (\(Dependency name verRange _) -> True) $ dependenciesAfterUpdate
+
+  -- let newDependencies = filter (\(Dependency name _ _) -> any (\(Dependency oldName _ _) -> unPackageName name == unPackageName oldName) dependanciesBeforeUpdate) dependenciesAfterUpdate
+  let newDependencies = filter (\name -> any (\(Dependency oldName _ _) -> unPackageName oldName == name) dependanciesBeforeUpdate) . map (\(Dependency name _ _) -> unPackageName name) $ dependenciesAfterUpdate
+  let upgradedDependencies = map (\(Dependency name verRange _) -> name) . filter(\(Dependency name verRange _) -> ) dependenciesAfterUpdate
+  -- Removed packages
+  -- Downgraded packages
+
+  putStr $ concat
+    . map (\(Dependency name _ _ ) -> unPackageName name)
+    . filter (\(Dependency name verRange _) -> True) $ dependenciesAfterUpdate

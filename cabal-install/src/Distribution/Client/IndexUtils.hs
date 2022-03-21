@@ -38,6 +38,7 @@ module Distribution.Client.IndexUtils (
   parsePackageIndex,
   updateRepoIndexCache,
   updatePackageIndexCacheFile,
+  readRepoIndex,
   writeIndexTimestamp,
   currentIndexTimestamp,
 
