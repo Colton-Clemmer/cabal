@@ -177,7 +177,7 @@ updateRepo :: Verbosity -> UpdateFlags -> RepoContext -> (Repo, RepoIndexState)
            -> IO ()
 updateRepo verbosity _updateFlags repoCtxt (repo, indexState) = do
   transport <- repoContextGetTransport repoCtxt
-  packagesBeforeUpdate <- getPackagesFromIndex silent repoCtxt repo indexState
+  packagesBeforeUpdate <- getPackagesFromIndex repoCtxt repo indexState
   case repo of
     RepoLocalNoIndex{} -> do
       let index = RepoIndex repoCtxt repo
@@ -233,7 +233,7 @@ updateRepo verbosity _updateFlags repoCtxt (repo, indexState) = do
             noticeNoWrap verbosity $
               "To revert to previous state run:\n" ++
               "    cabal v2-update '" ++ prettyShow (UpdateRequest rname (IndexStateTime current_ts)) ++ "'\n"
-  packagesAfterUpdate <- getPackagesFromIndex silent repoCtxt repo indexState
+  packagesAfterUpdate <- getPackagesFromIndex repoCtxt repo indexState
   let repoUpdateData = getRepoUpdate packagesBeforeUpdate packagesAfterUpdate
   unless (verbosity == silent) . putStr . prettyShow $ repoUpdateData
   when (verbosity == verbose || verbosity == deafening) . putStr $ printPackages repoUpdateData

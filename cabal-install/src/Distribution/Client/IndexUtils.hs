@@ -415,16 +415,25 @@ mkAvailablePackage repo pkgEntry = SourcePackage
         pkgdesc = packageDesc pkgEntry
         pkgid = packageId pkgEntry
 
-getPackagesFromIndex :: Verbosity -> RepoContext -> Repo -> RepoIndexState -> IO [PackageId]
-getPackagesFromIndex verbosity repoCtx repo idxState = do
-  cacheExists <- doesFileExist $ cacheFile (RepoIndex repoCtx repo)
-  if cacheExists then do
-    (packageIndex, _, _) <- readPackageIndexCacheFile verbosity (mkAvailablePackage repo) 
-                              (RepoIndex repoCtx repo)
-                              idxState
-    return . map srcpkgPackageId $ allPackages packageIndex
-  else
-    return []
+getPackagesFromIndex :: RepoContext -> Repo -> RepoIndexState -> IO [PackageId]
+getPackagesFromIndex repoCtx repo idxState = do
+  let index = RepoIndex repoCtx repo
+  if localNoIndex index then do
+    cache0 <- readNoIndexCache' index
+    case cache0 of
+      Left _ -> return []
+      Right res -> do
+        (packageIndex, _) <- packageNoIndexFromCache silent (mkAvailablePackage repo) res
+        return . map srcpkgPackageId $ allPackages packageIndex
+  else do
+    cache0  <- readIndexCache' index
+    case cache0 of 
+      Left _ -> return []
+      Right res -> do
+        indexHnd <- openFile (indexFile index) ReadMode
+        let (cache,_) = filterCache idxState res
+        (packageIndex,_) <- packageIndexFromCache silent (mkAvailablePackage repo) indexHnd cache
+        return . map srcpkgPackageId $ allPackages packageIndex
 
 -- | Return the age of the index file in days (as a Double).
 getIndexFileAge :: Repo -> IO Double
