@@ -46,12 +46,13 @@ import Distribution.Simple.Flag
 import Distribution.Simple.Utils
          ( die', notice, wrapText, writeFileAtomic, noticeNoWrap, warn )
 import Distribution.Verbosity
-         ( normal, lessVerbose )
+         ( normal, lessVerbose, verbose, silent, deafening )
 import Distribution.Client.IndexUtils.Timestamp
 import Distribution.Client.IndexUtils.IndexState
 import Distribution.Client.IndexUtils
          ( updateRepoIndexCache, Index(..), writeIndexTimestamp
-         , currentIndexTimestamp, indexBaseName, updatePackageIndexCacheFile )
+         , currentIndexTimestamp, indexBaseName, updatePackageIndexCacheFile, getPackagesFromIndex )
+import Distribution.Types.PackageId (printPackages, getRepoUpdate)
 
 import qualified Data.Maybe as Unsafe (fromJust)
 import qualified Distribution.Compat.CharParsing as P
@@ -176,6 +177,7 @@ updateRepo :: Verbosity -> UpdateFlags -> RepoContext -> (Repo, RepoIndexState)
            -> IO ()
 updateRepo verbosity _updateFlags repoCtxt (repo, indexState) = do
   transport <- repoContextGetTransport repoCtxt
+  packagesBeforeUpdate <- getPackagesFromIndex silent repoCtxt repo indexState
   case repo of
     RepoLocalNoIndex{} -> do
       let index = RepoIndex repoCtxt repo
@@ -231,3 +233,7 @@ updateRepo verbosity _updateFlags repoCtxt (repo, indexState) = do
             noticeNoWrap verbosity $
               "To revert to previous state run:\n" ++
               "    cabal v2-update '" ++ prettyShow (UpdateRequest rname (IndexStateTime current_ts)) ++ "'\n"
+  packagesAfterUpdate <- getPackagesFromIndex silent repoCtxt repo indexState
+  let repoUpdateData = getRepoUpdate packagesBeforeUpdate packagesAfterUpdate
+  unless (verbosity == silent) . putStr . prettyShow $ repoUpdateData
+  when (verbosity == verbose || verbosity == deafening) . putStr $ printPackages repoUpdateData

@@ -40,6 +40,7 @@ module Distribution.Client.IndexUtils (
   updatePackageIndexCacheFile,
   writeIndexTimestamp,
   currentIndexTimestamp,
+  getPackagesFromIndex,
 
   BuildTreeRefType(..), refTypeFromTypeCode, typeCodeFromRefType,
   -- * preferred-versions utilities
@@ -88,7 +89,7 @@ import Distribution.PackageDescription.Parsec
 import qualified Distribution.PackageDescription.Parsec as PackageDesc.Parse
 import qualified Distribution.Simple.PackageDescription as PackageDesc.Parse
 
-import           Distribution.Solver.Types.PackageIndex (PackageIndex)
+import           Distribution.Solver.Types.PackageIndex (PackageIndex, allPackages)
 import qualified Distribution.Solver.Types.PackageIndex as PackageIndex
 import           Distribution.Solver.Types.SourcePackage
 
@@ -368,25 +369,10 @@ readRepoIndex verbosity repoCtxt repo idxState =
     -- note that if this step fails due to a bad repocache, the the procedure can still succeed by reading from the existing cache, which is updated regardless.
     updateRepoIndexCache verbosity (RepoIndex repoCtxt repo) `catchIO`
        (\e -> warn verbosity $ "unable to update the repo index cache -- " ++ displayException e)
-    readPackageIndexCacheFile verbosity mkAvailablePackage
+    readPackageIndexCacheFile verbosity (mkAvailablePackage repo)
                               (RepoIndex repoCtxt repo)
                               idxState
-
   where
-    mkAvailablePackage pkgEntry = SourcePackage
-      { srcpkgPackageId   = pkgid
-      , srcpkgDescription = pkgdesc
-      , srcpkgSource      = case pkgEntry of
-          NormalPackage _ _ _ _       -> RepoTarballPackage repo pkgid Nothing
-          BuildTreeRef  _  _ _ path _ -> LocalUnpackedPackage path
-      , srcpkgDescrOverride = case pkgEntry of
-          NormalPackage _ _ pkgtxt _ -> Just pkgtxt
-          _                          -> Nothing
-      }
-      where
-        pkgdesc = packageDesc pkgEntry
-        pkgid = packageId pkgEntry
-
     handleNotFound action = catchIO action $ \e -> if isDoesNotExistError e
       then do
         case repo of
@@ -413,6 +399,32 @@ readRepoIndex verbosity repoCtxt repo idxState =
          "The package list for '" ++ unRepoName (remoteRepoName repoRemote)
       ++ "' is " ++ shows (floor dt :: Int) " days old.\nRun "
       ++ "'cabal update' to get the latest list of available packages."
+
+mkAvailablePackage :: Repo -> PackageEntry -> SourcePackage (PackageLocation (Maybe a))
+mkAvailablePackage repo pkgEntry = SourcePackage
+      { srcpkgPackageId   = pkgid
+      , srcpkgDescription = pkgdesc
+      , srcpkgSource      = case pkgEntry of
+          NormalPackage {}       -> RepoTarballPackage repo pkgid Nothing
+          BuildTreeRef  _  _ _ path _ -> LocalUnpackedPackage path
+      , srcpkgDescrOverride = case pkgEntry of
+          NormalPackage _ _ pkgtxt _ -> Just pkgtxt
+          _                          -> Nothing
+      }
+      where
+        pkgdesc = packageDesc pkgEntry
+        pkgid = packageId pkgEntry
+
+getPackagesFromIndex :: Verbosity -> RepoContext -> Repo -> RepoIndexState -> IO [PackageId]
+getPackagesFromIndex verbosity repoCtx repo idxState = do
+  cacheExists <- doesFileExist $ cacheFile (RepoIndex repoCtx repo)
+  if cacheExists then do
+    (packageIndex, _, _) <- readPackageIndexCacheFile verbosity (mkAvailablePackage repo) 
+                              (RepoIndex repoCtx repo)
+                              idxState
+    return . map srcpkgPackageId $ allPackages packageIndex
+  else
+    return []
 
 -- | Return the age of the index file in days (as a Double).
 getIndexFileAge :: Repo -> IO Double

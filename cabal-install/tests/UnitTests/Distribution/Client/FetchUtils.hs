@@ -13,8 +13,8 @@ import Distribution.Client.HttpUtils (HttpCode, HttpTransport (..))
 import Distribution.Client.Types.PackageLocation (PackageLocation (..), ResolvedPkgLoc)
 import Distribution.Client.Types.Repo (Repo (..), emptyRemoteRepo)
 import Distribution.Client.Types.RepoName (RepoName (..))
-import Distribution.Types.PackageId (PackageIdentifier (..))
-import Distribution.Types.PackageName (mkPackageName)
+import Distribution.Types.PackageId (PackageIdentifier (..), RepoUpdate(..), getRepoUpdate, PackageId)
+import Distribution.Types.PackageName (mkPackageName, unPackageName)
 import qualified Distribution.Verbosity as Verbosity
 import Distribution.Version (mkVersion)
 import Network.URI (URI, uriPath)
@@ -32,7 +32,8 @@ tests =
         testCase "aborts on interrupt in GET" $ testGetInterrupt,
         testCase "aborts on other exception in GET" $ testGetException,
         testCase "aborts on interrupt in GET (uncollected download)" $ testUncollectedInterrupt,
-        testCase "continues on other exception in GET (uncollected download)" $ testUncollectedException
+        testCase "continues on other exception in GET (uncollected download)" $ testUncollectedException,
+        testCase "parses repo package updates" $ testUpdateVerbosity oldDependencies newDependencies
       ]
   ]
 
@@ -207,3 +208,40 @@ withFakeRepoCtxt handleGet action =
           transportSupportsHttps = error "fake transport: transportSupportsHttps not implemented",
           transportManuallySelected = True
         }
+
+testUpdateVerbosity :: [PackageId] -> [PackageId] -> Assertion 
+testUpdateVerbosity oldDeps newDeps = do  
+  let repoUpdate = getRepoUpdate oldDeps newDeps
+  1 @=? numPackagesAdded repoUpdate
+  1 @=? (length . packagesAdded $ repoUpdate)
+  mkVersion [1,0,0] @=? (pkgVersion . head . packagesAdded $ repoUpdate)
+  "Four" @=? (getPackageName . head . packagesAdded $ repoUpdate)
+  1 @=? numPackagesUpdated repoUpdate
+  1 @=? (length . packagesUpdated $ repoUpdate)
+  "Two" @=? (getPackageName . head . packagesUpdated $ repoUpdate)
+  mkVersion [1,2,0] @=? (pkgVersion . head . packagesUpdated $ repoUpdate)
+  1 @=? numPackagesRemoved repoUpdate
+  1 @=? (length . packagesRemoved $ repoUpdate)
+  "Three" @=? (getPackageName . head . packagesRemoved $ repoUpdate)
+  where
+    getPackageName :: PackageId -> String
+    getPackageName (PackageIdentifier name _) = unPackageName name
+
+mkPkgVer :: String -> [Int] -> PackageId
+mkPkgVer name ver = PackageIdentifier (mkPackageName name) (mkVersion ver)
+
+oldDependencies :: [PackageId]
+oldDependencies = [
+    mkPkgVer "One" [1,0,0],
+    mkPkgVer "Two" [1,0,0],
+    mkPkgVer "Three" [1,0,0]
+  ]
+
+newDependencies :: [PackageId]
+newDependencies = [
+  mkPkgVer "One" [1,0,0],
+  mkPkgVer "Two" [1,1,0],
+  mkPkgVer "Two" [1,2,0],
+  mkPkgVer "Four" [0,9,0],
+  mkPkgVer "Four" [1,0,0]
+  ]
