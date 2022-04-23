@@ -513,7 +513,7 @@ readProjectConfig verbosity httpTransport ignoreProjectFlag configFileFlag distD
     local  <- readProjectLocalConfigOrDefault verbosity httpTransport distDirLayout
     freeze <- readProjectLocalFreezeConfig    verbosity httpTransport distDirLayout
     extra  <- readProjectLocalExtraConfig     verbosity httpTransport distDirLayout
-    if ignoreProjectFlag then return (global <> freeze <> extra)
+    if ignoreProjectFlag then return global
     else return (global <> local <> freeze <> extra)
 
 
