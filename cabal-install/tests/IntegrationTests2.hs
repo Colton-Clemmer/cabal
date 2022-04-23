@@ -99,74 +99,60 @@ tests config =
     -- * normal success
     -- * dry-run tests with changes
   [ 
---     testGroup "Discovery and planning" $
---     [ testCase "find root"      testFindProjectRoot
---     , testCase "find root fail" testExceptionFindProjectRoot
---     , testCase "no package"    (testExceptionInFindingPackage config)
---     , testCase "no package2"   (testExceptionInFindingPackage2 config)
---     , testCase "proj conf1"    (testExceptionInProjectConfig config)
---     ]
---   , testGroup "Target selectors" $
---     [ testCaseSteps "valid"              testTargetSelectors
---     , testCase      "bad syntax"         testTargetSelectorBadSyntax
---     , testCaseSteps "ambiguous syntax"   testTargetSelectorAmbiguous
---     , testCase      "no current pkg"     testTargetSelectorNoCurrentPackage
---     , testCase      "no targets"         testTargetSelectorNoTargets
---     , testCase      "project empty"      testTargetSelectorProjectEmpty
---     , testCase      "canonicalized path" testTargetSelectorCanonicalizedPath
---     , testCase      "problems (common)"  (testTargetProblemsCommon config)
---     , testCaseSteps "problems (build)"   (testTargetProblemsBuild config)
---     , testCaseSteps "problems (repl)"    (testTargetProblemsRepl config)
---     , testCaseSteps "problems (run)"     (testTargetProblemsRun config)
---     , testCaseSteps "problems (list-bin)" (testTargetProblemsListBin config)
---     , testCaseSteps "problems (test)"    (testTargetProblemsTest config)
---     , testCaseSteps "problems (bench)"   (testTargetProblemsBench config)
---     , testCaseSteps "problems (haddock)" (testTargetProblemsHaddock config)
---     ]
---   , testGroup "Exceptions during building (local inplace)" $
---     [ testCase "configure"   (testExceptionInConfigureStep config)
---     , testCase "build"       (testExceptionInBuildStep config)
--- --    , testCase "register"   testExceptionInRegisterStep
---     ]
---     --TODO: need to repeat for packages for the store
---     --TODO: need to check we can build sub-libs, foreign libs and exes
---     -- components for non-local packages / packages in the store.
+    testGroup "Discovery and planning" $
+    [ testCase "find root"      testFindProjectRoot
+    , testCase "find root fail" testExceptionFindProjectRoot
+    , testCase "no package"    (testExceptionInFindingPackage config)
+    , testCase "no package2"   (testExceptionInFindingPackage2 config)
+    , testCase "proj conf1"    (testExceptionInProjectConfig config)
+    ]
+  , testGroup "Target selectors" $
+    [ testCaseSteps "valid"              testTargetSelectors
+    , testCase      "bad syntax"         testTargetSelectorBadSyntax
+    , testCaseSteps "ambiguous syntax"   testTargetSelectorAmbiguous
+    , testCase      "no current pkg"     testTargetSelectorNoCurrentPackage
+    , testCase      "no targets"         testTargetSelectorNoTargets
+    , testCase      "project empty"      testTargetSelectorProjectEmpty
+    , testCase      "canonicalized path" testTargetSelectorCanonicalizedPath
+    , testCase      "problems (common)"  (testTargetProblemsCommon config)
+    , testCaseSteps "problems (build)"   (testTargetProblemsBuild config)
+    , testCaseSteps "problems (repl)"    (testTargetProblemsRepl config)
+    , testCaseSteps "problems (run)"     (testTargetProblemsRun config)
+    , testCaseSteps "problems (list-bin)" (testTargetProblemsListBin config)
+    , testCaseSteps "problems (test)"    (testTargetProblemsTest config)
+    , testCaseSteps "problems (bench)"   (testTargetProblemsBench config)
+    , testCaseSteps "problems (haddock)" (testTargetProblemsHaddock config)
+    ]
+  , testGroup "Exceptions during building (local inplace)" $
+    [ testCase "configure"   (testExceptionInConfigureStep config)
+    , testCase "build"       (testExceptionInBuildStep config)
+--    , testCase "register"   testExceptionInRegisterStep
+    ]
+    --TODO: need to repeat for packages for the store
+    --TODO: need to check we can build sub-libs, foreign libs and exes
+    -- components for non-local packages / packages in the store.
 
---   , testGroup "Successful builds" $
---     [ testCaseSteps "Setup script styles" (testSetupScriptStyles config)
---     , testCase      "keep-going"          (testBuildKeepGoing config)
--- #ifndef mingw32_HOST_OS
---     -- disabled because https://github.com/haskell/cabal/issues/6272
---     , testCase      "local tarball"       (testBuildLocalTarball config)
--- #endif
---     ]
+  , testGroup "Successful builds" $
+    [ testCaseSteps "Setup script styles" (testSetupScriptStyles config)
+    , testCase      "keep-going"          (testBuildKeepGoing config)
+#ifndef mingw32_HOST_OS
+    -- disabled because https://github.com/haskell/cabal/issues/6272
+    , testCase      "local tarball"       (testBuildLocalTarball config)
+#endif
+    ]
 
---   , testGroup "Regression tests" $
---     [ testCase "issue #3324" (testRegressionIssue3324 config)
---     , testCase "program options scope all" (testProgramOptionsAll config)
---     , testCase "program options scope local" (testProgramOptionsLocal config)
---     , testCase "program options scope specific" (testProgramOptionsSpecific config)
---     ], 
-    testGroup "Flag tests" $
+    , testGroup "Regression tests" $
+    [ testCase "issue #3324" (testRegressionIssue3324 config)
+    , testCase "program options scope all" (testProgramOptionsAll config)
+    , testCase "program options scope local" (testProgramOptionsLocal config)
+    , testCase "program options scope specific" (testProgramOptionsSpecific config)
+    ]
+    ,  testGroup "Flag tests" $
     [
-      -- testCase "Test Nix Flag" testNixFlags,
+      testCase "Test Nix Flag" testNixFlags,
       testCase "Test Ignore Project Flag" testIgnoreProjectFlag
     ]
   ]
-
-testIgnoreProjectFlag :: Assertion
-testIgnoreProjectFlag = do
-  -- Coverage flag should be false globally by default (~/.cabal folder)
-  (_, _, prjConfigGlobal, _, _) <- configureProject True testdir emptyConfig
-  let globalCoverageFlag = packageConfigCoverage . projectConfigLocalPackages $ prjConfigGlobal
-  False @?= Flg.fromFlagOrDefault False globalCoverageFlag
-  -- It is set to true in the cabal.project file
-  (_, _, prjConfigLocal, _, _) <- configureProject False testdir emptyConfig
-  let localCoverageFlag = packageConfigCoverage . projectConfigLocalPackages $ prjConfigLocal
-  True @?= Flg.fromFlagOrDefault False localCoverageFlag
-  where
-    testdir = "build/ignore-project"
-    emptyConfig = mempty
 
 testFindProjectRoot :: Assertion
 testFindProjectRoot = do
@@ -1979,3 +1965,17 @@ testNixFlags = do
     getFlags :: CommandUI GlobalFlags -> CommandParse (GlobalFlags -> GlobalFlags, [String]) -> Maybe GlobalFlags
     getFlags cui (CommandReadyToGo (mkflags, _)) = Just . mkflags . commandDefaultFlags $ cui
     getFlags _ _ = Nothing
+
+testIgnoreProjectFlag :: Assertion
+testIgnoreProjectFlag = do
+  -- Coverage flag should be false globally by default (~/.cabal folder)
+  (_, _, prjConfigGlobal, _, _) <- configureProject True testdir emptyConfig
+  let globalCoverageFlag = packageConfigCoverage . projectConfigLocalPackages $ prjConfigGlobal
+  False @=? Flg.fromFlagOrDefault False globalCoverageFlag
+  -- It is set to true in the cabal.project file
+  (_, _, prjConfigLocal, _, _) <- configureProject False testdir emptyConfig
+  let localCoverageFlag = packageConfigCoverage . projectConfigLocalPackages $ prjConfigLocal
+  True @=? Flg.fromFlagOrDefault False localCoverageFlag
+  where
+    testdir = "build/ignore-project"
+    emptyConfig = mempty
