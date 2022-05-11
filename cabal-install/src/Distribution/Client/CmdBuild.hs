@@ -13,6 +13,7 @@ module Distribution.Client.CmdBuild (
 
 import Prelude ()
 import Distribution.Client.Compat.Prelude
+import Distribution.Client.CmdHaddock (haddockAction, ClientHaddockFlags(..))
 
 import Distribution.Client.ProjectFlags
          ( removeIgnoreProjectOption )
@@ -24,7 +25,7 @@ import Distribution.Client.CmdErrorMessages
 import Distribution.Client.NixStyleOptions
          ( NixStyleFlags (..), nixStyleOptions, defaultNixStyleFlags )
 import Distribution.Client.Setup
-         ( GlobalFlags, ConfigFlags(..), yesNoOpt )
+         ( GlobalFlags, ConfigFlags(..), yesNoOpt, InstallFlags(installDocumentation) )
 import Distribution.Simple.Flag ( Flag(..), toFlag, fromFlag, fromFlagOrDefault )
 import Distribution.Simple.Command
          ( CommandUI(..), usageAlternatives, option )
@@ -141,7 +142,14 @@ buildAction flags@NixStyleFlags { extraFlags = buildFlags, ..} targetStrings glo
 
     buildOutcomes <- runProjectBuildPhase verbosity baseCtx buildCtx
     runProjectPostBuildPhase verbosity baseCtx buildCtx buildOutcomes
+    when enableDocumentationFlag $ haddockAction haddockActionFlags targetStrings globalFlags
   where
+    haddockActionFlags = flags { 
+      extraFlags = ClientHaddockFlags { openInBrowser = Flag False}
+      , installFlags = installFlags { installDocumentation = NoFlag } 
+    }
+    enableDocumentationFlag :: Bool
+    enableDocumentationFlag = fromFlagOrDefault False . installDocumentation $ installFlags
     verbosity = fromFlagOrDefault normal (configVerbosity configFlags)
 
 -- | This defines what a 'TargetSelector' means for the @bench@ command.

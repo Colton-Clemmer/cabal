@@ -9,7 +9,8 @@ module Distribution.Client.CmdHaddock (
 
     -- * Internals exposed for testing
     selectPackageTargets,
-    selectComponentTarget
+    selectComponentTarget,
+    ClientHaddockFlags(..)
   ) where
 
 import Distribution.Client.Compat.Prelude
@@ -117,7 +118,6 @@ haddockAction flags@NixStyleFlags {..} targetStrings globalFlags = do
             return (elaboratedPlan', targets)
 
     printPlan verbosity baseCtx buildCtx
-
     buildOutcomes <- runProjectBuildPhase verbosity baseCtx buildCtx
     runProjectPostBuildPhase verbosity baseCtx buildCtx buildOutcomes
   where
