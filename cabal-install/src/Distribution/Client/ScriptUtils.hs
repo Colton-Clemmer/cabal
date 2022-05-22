@@ -43,7 +43,7 @@ import Distribution.Client.ProjectFlags
 import Distribution.Client.RebuildMonad
     ( runRebuild )
 import Distribution.Client.Setup
-    ( ConfigFlags(..), GlobalFlags(..) )
+    ( ConfigFlags(..), GlobalFlags(..), InstallFlags(installDocumentation) )
 import Distribution.Client.TargetSelector
     ( TargetSelectorProblem(..), TargetString(..) )
 import Distribution.Client.Types
@@ -215,9 +215,11 @@ withContextAndSelectors noTargets kind flags@NixStyleFlags {..} targetStrings gl
     cliConfig = commandLineFlagsToProjectConfig globalFlags flags mempty
     globalConfigFlag = projectConfigConfigFile (projectConfigShared cliConfig)
     defaultTarget = [TargetPackage TargetExplicitNamed [fakePackageId] Nothing]
+    installDocs = fromFlagOrDefault False (installDocumentation installFlags)
+    currentCommand = if installDocs then HaddockCommand else OtherCommand
 
     with = do
-      ctx <- establishProjectBaseContext verbosity cliConfig OtherCommand
+      ctx <- establishProjectBaseContext verbosity cliConfig currentCommand
       return (ProjectContext, ctx)
     without mkDir globalConfig = do
       distDirLayout <- establishDummyDistDirLayout verbosity (globalConfig <> cliConfig) =<< mkDir
